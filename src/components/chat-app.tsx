@@ -8,6 +8,7 @@ import {
   OpenApiTokenFromJSON,
 } from "@lingya-ai/agents-sdk/browser";
 import { AgentProvider } from "@/components/xlt-agent/openapi/provider";
+import { AgentFilePreviewsProvider } from "@/components/xlt-agent/integration/file-previews";
 import { AgentChat } from "@/components/xlt-agent/blocks/agent-chat";
 import { Button } from "@/components/xlt-agent/ui/components/button";
 
@@ -131,19 +132,21 @@ export function ChatApp({ channelId }: Props) {
             onConversationIdChange: handleConversationIdChange,
           }}
         >
-          <AgentChat
-            key={session.key}
-            conversationId={session.conversationId}
-            className="h-full"
-            input={{
-              placeholder: "输入消息，Enter 发送，Shift+Enter 换行",
-            }}
-            emptyState={{
-              title: "开始一段新对话",
-              description:
-                "消息会通过服务端一次性令牌与受限同源代理发送到已配置的 OpenAPI 渠道。",
-            }}
-          />
+          <AgentFilePreviewsProvider>
+            <AgentChat
+              key={session.key}
+              conversationId={session.conversationId}
+              className="h-full"
+              input={{
+                placeholder: "输入消息，Enter 发送，Shift+Enter 换行",
+              }}
+              emptyState={{
+                title: "开始一段新对话",
+                description:
+                  "消息会通过服务端一次性令牌与受限同源代理发送到已配置的 OpenAPI 渠道。",
+              }}
+            />
+          </AgentFilePreviewsProvider>
         </AgentProvider>
       </main>
     </div>

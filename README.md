@@ -17,7 +17,7 @@
 | Tailwind CSS | 4.x |
 | shadcn CLI | 4.22.1（`radix-nova` 初始化） |
 | XLT Agent UI Registry | 0.2.0，`https://lingya-ai.github.io/xlt-agent-ui/r/0.2.0/` |
-| 官方 SDK | `@lingya-ai/agents-sdk@0.7.0`（npm） |
+| 官方 SDK | `@lingya-ai/agents-sdk@0.7.1`（npm） |
 | 本地端口 | 4612（仅监听 `127.0.0.1`） |
 
 ## 前置准备
@@ -53,6 +53,7 @@ pnpm registry:add
 pnpm dlx shadcn@4.22.1 add \
   https://lingya-ai.github.io/xlt-agent-ui/r/0.2.0/agent-chat.json \
   https://lingya-ai.github.io/xlt-agent-ui/r/0.2.0/agent-server.json \
+  https://lingya-ai.github.io/xlt-agent-ui/r/0.2.0/agent-files.json \
   --yes --overwrite
 ```
 
@@ -64,7 +65,15 @@ pnpm install
 pnpm registry:build
 pnpm registry:serve
 # 然后把上面的 URL 换成 http://localhost:4602/r/0.2.0/...
+# 并在 xlt-demo 中执行：
+pnpm dlx shadcn@4.22.1 add \
+  http://localhost:4602/r/0.2.0/agent-chat.json \
+  http://localhost:4602/r/0.2.0/agent-server.json \
+  http://localhost:4602/r/0.2.0/agent-files.json \
+  --yes --overwrite
 ```
+
+> 注意：公开 Registry 0.2.0 尚未包含本次上传 Hook 修复。当前项目是从 `xlt-agent-ui` 本地构建的 0.2.0 安装的；在 Registry 递增版本并重新发布前，重装请使用本地 4602 地址，否则会恢复旧 Hook。
 
 本项目初始化时使用 shadcn 的 Radix 基础（`radix-nova`），以匹配 Registry 组件的 Radix 原语。若用 Base UI 预设重新初始化，CLI 会把 `asChild` 改写为 `render`，与 Registry 的 Radix 包装不兼容。
 
@@ -134,6 +143,8 @@ OpenAPI 网关（保留原租户域名与 Host 语义）
 - 刷新后按 URL 中的会话 ID 恢复历史
 - 加载、错误与空状态反馈
 - 使用 Registry `AgentChat` 组合组件，保留其交互与宿主 shadcn 语义令牌
+- 通过 Registry `agent-files` 与 `AgentFilePreviewsProvider` 支持 DOCX、PDF、Excel、PPTX、图片、音视频、HTML、Markdown 等文件预览
+- 注意：文件预览和直传都依赖对象存储 CORS；未允许页面源时会显示加载/上传失败
 
 ## 示例身份接入
 
@@ -161,10 +172,44 @@ pnpm build
 浏览器验证脚本：
 
 ```sh
-node scripts/browser-smoke.mjs
+node scripts/browser-smoke.mjs # 打开页面、截图、输出控制台信息
+node scripts/verify-chat.mjs   # 真实发送、刷新恢复、新建对话
+node scripts/verify-stop.mjs   # 长回复中点击“停止生成”
+node scripts/verify-upload.mjs # 真实附件预签名与直传；直传需要 COS 桶允许当前源
 ```
 
-脚本使用本机 Chrome，截图输出到 `artifacts/`。真实渠道对话验证需要 `.env.local` 中的网关、渠道和 AK/SK。
+脚本使用本机 Chrome，截图输出到 `artifacts/`。`verify-chat.mjs` 与 `verify-stop.mjs` 会向真实渠道发送测试消息，需要 `.env.local` 中的网关、渠道和 AK/SK。`verify-upload.mjs` 会向当前渠道上传一个 28 字节的测试文本。
+
+### 本次验证结果（2026-10-23）
+
+| 项目 | 结果 |
+| --- | --- |
+| `pnpm typecheck` | 通过 |
+| `pnpm lint` | 通过 |
+| `pnpm build` | 通过（Next.js 16.1.6，3 个动态路由） |
+| 真实渠道对话 | 通过，助手返回：“你好，我是小灵通，一个能调用工具、搜索和分析信息、帮你完成多步骤任务的智能助手。” |
+| 流式回复与停止生成 | 通过：流式过程中出现“停止生成”，点击后文本停止增长 |
+| 会话 ID 写入 URL | 通过（`/?conversation=<id>`） |
+| 刷新恢复历史 | 通过（刷新后仍为 2 条消息，内容一致） |
+| 新建对话 | 通过（URL 清空、消息数归零、输入框可用） |
+| 附件预签名 | 通过：`201`、`support: true`、`uploadMethod: POST_FORM`、`maximumBytes: 28` |
+| 附件直传 | 未通过：腾讯 COS 桶未允许 `http://127.0.0.1:4612`，浏览器被 CORS 拦截；需配置桶 CORS 或改用已允许的页面源 |
+| 文件预览 Provider | 已安装：原“安装文件预览能力后可在此查看文件”兜底消失，DOCX 预览器已加载 |
+| DOCX 预览加载 | 未通过：预览器请求 COS 签名 URL 时同样被 CORS 拦截，需与上传共用同一 CORS 配置 |
+| 对话验证浏览器控制台 | 0 个错误 |
+| 对话验证失败网络请求 | 0 个 |
+| 构建产物密钥扫描 | 通过：`AK/SK` 未出现在 `.next`、`src`、文档或 `.env.example` |
+
+截图：
+
+- `artifacts/chat-response.png`：真实助手回复
+- `artifacts/chat-history.png`：刷新后的历史
+- `artifacts/chat-new.png`：新建对话后的空状态
+- `artifacts/chat-stop.png`：停止生成后的界面
+- `artifacts/chat-upload-failure.png`：附件预签名成功但 COS 直传被 CORS 拦截
+- `artifacts/chat-preview.png`：DOCX 预览器已加载，但签名 URL 被 COS CORS 拦截
+
+验证期间上游网关曾短暂返回 `503 GATEWAY_SERVICE_UNAVAILABLE`，恢复后完成上述真实联调；本地令牌、SSE 透传和渠道路径校验也分别验证通过。
 
 ## 常见问题
 
@@ -174,6 +219,7 @@ node scripts/browser-smoke.mjs
 | 令牌接口 503 | `OPENAPI_BASE_URL` / `CHANNEL_ID` / `AK` / `SK` / `EXTERNAL_USER_ID` 不完整 |
 | 令牌接口 502 | 网关不可达、AK/SK 错误、渠道未发布或 `/chat/presign` 返回非 2xx |
 | 代理 403 | 请求路径不属于当前渠道，或渠道 ID 不匹配 |
+| 附件预签名成功但直传失败 | 对象存储 CORS 未允许页面源。为 COS 桶添加当前源、`POST`/`PUT` 方法和所需请求头；或把页面部署到已允许的源 |
 | SSE 看起来被缓冲 | 检查代理是否部署在会缓冲的网关后；本项目已设置 `X-Accel-Buffering: no` 并直接透传流 |
 | Node 无法解析 `*.localhost` | 在服务端连接层把该域名解析到回环地址，同时保留请求中的原域名；不要直接改写为 IP |
 
@@ -190,5 +236,5 @@ node scripts/browser-smoke.mjs
 
 - 基础项目：[xlt-agent-ui](https://github.com/lingya-ai/xlt-agent-ui)，提供本示例使用的 Agent UI 组件与服务端接入能力。
 - Registry：XLT Agent UI 0.2.0（MIT）。
-- SDK：`@lingya-ai/agents-sdk@0.7.0`（MIT，npm 发布）。
+- SDK：`@lingya-ai/agents-sdk@0.7.1`（MIT，npm 发布）。
 - 安装后的组件源码与第三方许可文件位于 `src/components/xlt-agent/`。

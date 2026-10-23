@@ -39,6 +39,7 @@ const result = {
   messageCountBeforeReload: 0,
   messageCountAfterReload: 0,
   historyRestored: false,
+  newConversationReset: false,
   consoleErrors,
   failedResponses,
 };
@@ -109,6 +110,24 @@ try {
   console.log(JSON.stringify(result, null, 2));
 
   if (!result.historyRestored) throw new Error("刷新后历史消息未恢复");
+
+  step("新建对话并检查重置");
+  await page.getByRole("button", { name: "新建对话" }).click();
+  await page.waitForFunction(
+    () => location.pathname === "/" && location.search === "",
+    undefined,
+    { timeout: 30_000 },
+  );
+  await page.waitForFunction(
+    () => document.querySelectorAll("[data-message-id]").length === 0,
+    undefined,
+    { timeout: 30_000 },
+  );
+  await page.locator("textarea").first().waitFor({ state: "visible", timeout: 30_000 });
+  result.newConversationReset = true;
+  await snap("chat-new");
+  console.log(JSON.stringify(result, null, 2));
+
   if (consoleErrors.length) throw new Error("浏览器控制台存在错误");
 } catch (error) {
   await snap("chat-failure");
