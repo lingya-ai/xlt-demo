@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Registry 安装的源码由上游项目统一校验；宿主只 lint 接入代码，
+    // 避免 Next 16 的 React Compiler 规则误报上游保留实现。
+    "src/components/xlt-agent/**",
+    "src/components/ui/**",
   ]),
 ]);
 
