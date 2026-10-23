@@ -186,6 +186,8 @@ node scripts/browser-smoke.mjs
 
 ## 来源与许可证
 
+本项目采用 [MIT 协议](./LICENSE)，版权归属为 `Copyright (c) 2026 lingya-ai`。第三方组件与依赖保留各自的版权声明和许可证，项目的 MIT 协议不替代这些许可。
+
 - 基础项目：[xlt-agent-ui](https://github.com/lingya-ai/xlt-agent-ui)，提供本示例使用的 Agent UI 组件与服务端接入能力。
 - Registry：XLT Agent UI 0.2.0（MIT）。
 - SDK：`@lingya-ai/agents-sdk@0.7.0`（MIT，npm 发布）。
